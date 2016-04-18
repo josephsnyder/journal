@@ -93,26 +93,9 @@ class Journal_ApiComponent extends AppComponent
     $modelLoader = new MIDAS_ModelLoader();
     $itemModel = $modelLoader->loadModel('Item');
 
-    $revisionIds = array();
-    foreach($itemIds as $itemId)
-      {
-      $item = $itemModel->load($itemId);
-      if($item && $itemModel->policyCheck($item, $userDao))
-        {
-        $resourceDao = MidasLoader::loadModel("Item")->initDao("Resource", $item->toArray(), "journal");
-        $revisionId = $resourceDao->getRevisionId();
-        $revisionIds[$revisionId] = $itemId;
-        }
-      }
-
-    // Sort in descending order by revisionId so
-    // that newest revisions are displayed first.
-    ksort($revisionIds);
-    $revisionIds = array_reverse($revisionIds);
-
     $items = array();
     $count = 0;
-    foreach($revisionIds as $revisionId => $itemId)
+    foreach($itemIds as $itemId)
       {
       if($offset != 0)
         {
@@ -144,13 +127,14 @@ class Journal_ApiComponent extends AppComponent
         if($targetLevel == 0 || (strpos($targetLevel,$level) !== false))
           {
           $totalResults++;
-          $items[] = array('total' => $totalResults, 'title' => htmlentities($item->getName(), ENT_COMPAT | ENT_HTML401, "UTF-8" ),
+          $key = array('total' => $totalResults, 'title' => htmlentities($item->getName(), ENT_COMPAT | ENT_HTML401, "UTF-8" ),
             'rating' => (float)$rating['average'], 'type' => $item->getType(), 'logo' => $resourceDao->getLogo(),
             'id' => $item->getKey(), 'description' => htmlentities($item->getDescription(), ENT_COMPAT | ENT_HTML401, "UTF-8" ),
             'authors' => $authors, 'view' => $item->getView() ,'downloads' => $resourceDao->getDownload(), 'statistics' => $statistics,
             'revisionId' => $resourceDao->getRevision()->getKey(), "isCertified" => $isCertified, 'pastCertificationRevisionNum' => $foundRevisionID, "certifiedLevel" => $level,
             'pastCertificationRevisionKey' => $foundRevisionKey);
-
+          $items[] = $key;
+          $views[$count] = $key['revisionId'];
           $count++;
           }
         if($count >= $limit)
@@ -159,6 +143,7 @@ class Journal_ApiComponent extends AppComponent
           }
         }
       }
+    array_multisort($views,SORT_DESC, $items);
     return $items;
     }
     
